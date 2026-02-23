@@ -41,7 +41,7 @@ let processingQuests = false;
 let questQueue: any[] = [];
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 let fluxUnsubs: (() => void)[] = [];
-let sessionDebounce: ReturnType<typeof setTimeout> | null = null;
+let sessionStarting = false;
 
 // ── Utility ───────────────────────────────────────────────────────────────────
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
@@ -212,50 +212,51 @@ function syncQueueFromStore() {
     }
 }
 
-function scan() {
+async function scan() {
     if (!initialized) return;
-
-    // Sync already-enrolled quests immediately so the queue starts without delay
+    const newlyEnrolled = await autoAcceptAvailableQuests();
+    if (newlyEnrolled) await sleep(1500);
     syncQueueFromStore();
-
-    // Auto-accept runs in the background; syncs again when done so newly
-    // enrolled quests get picked up without blocking the existing queue
-    autoAcceptAvailableQuests().then(enrolled => {
-        if (enrolled) setTimeout(() => syncQueueFromStore(), 1500);
-    });
 }
 
 // ── Session init ──────────────────────────────────────────────────────────────
 function startSession() {
-    // Debounce rapid CONNECTION_OPEN bursts (multiple gateway shards)
-    if (sessionDebounce !== null) clearTimeout(sessionDebounce);
+    if (sessionStarting) return;
+    sessionStarting = true;
 
-    sessionDebounce = setTimeout(() => {
-        sessionDebounce  = null;
-        initialized      = false;
-        processingQuests = false;
-        questQueue       = [];
+    initialized      = false;
+    processingQuests = false;
+    questQueue       = [];
 
-        if (pollInterval !== null) {
-            clearInterval(pollInterval);
-            pollInterval = null;
+    if (pollInterval !== null) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+    }
+
+    setTimeout(async () => {
+        sessionStarting = false;
+        if (!initStores()) return;
+
+        // Proactively fetch quest data from the API so we don't need to visit
+        // the quests tab for Discord to load it. This populates QuestsStore
+        // through Discord's internal Flux pipeline.
+        try {
+            log("Fetching quests from API...");
+            await api.get({ url: "/quests/@me" });
+            log("Quest data loaded");
+        } catch (e) {
+            // Non-fatal — store may already have data or will populate on tab visit
+            log("Could not pre-fetch quests (will retry on next poll):", e);
         }
 
-        // Initialize stores immediately — no extra delay.
-        // Quest DATA may not have arrived yet (QUESTS_FETCH_SUCCESS handles that),
-        // but the store objects themselves are ready as soon as CONNECTION_OPEN fires.
-        if (!initStores()) return;
         pollInterval = setInterval(() => scan(), 60_000);
-
-        // Do an immediate scan in case QUESTS_FETCH_SUCCESS already fired
-        // (e.g. plugin enabled mid-session) or quests are already in the store
         scan();
-    }, 500); // 500ms is enough to let the last shard connect; no need for 2s
+    }, 2000);
 }
 
 // ── Processing loop ───────────────────────────────────────────────────────────
 function doJob() {
-    const quest = questQueue.pop();
+    const quest = questQueue.shift();
     if (!quest) {
         processingQuests = false;
         log("All queued quests done.");
@@ -333,7 +334,6 @@ function doJob() {
                     return;
                 }
 
-                // Find a win32 executable; fall back to any executable; fall back to a generic name
                 const win32Exe = appData.executables?.find((x: any) => x.os === "win32");
                 const anyExe   = appData.executables?.[0];
                 const exeName  = (win32Exe ?? anyExe)?.name?.replace(">", "") ?? `${appData.name}.exe`;
@@ -356,6 +356,13 @@ function doJob() {
                 const realGetRunningGames = RunningGameStore.getRunningGames;
                 const realGetGameForPID   = RunningGameStore.getGameForPID;
 
+                const cleanup = () => {
+                    RunningGameStore.getRunningGames = realGetRunningGames;
+                    RunningGameStore.getGameForPID   = realGetGameForPID;
+                    FluxDispatcher.dispatch({ type: "RUNNING_GAMES_CHANGE", removed: [fakeGame], added: [], games: [] });
+                    FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
+                };
+
                 RunningGameStore.getRunningGames = () => [fakeGame];
                 RunningGameStore.getGameForPID   = (p: number) => (p === fakeGame.pid ? fakeGame : undefined);
                 FluxDispatcher.dispatch({ type: "RUNNING_GAMES_CHANGE", removed: realGames, added: [fakeGame], games: [fakeGame] });
@@ -370,18 +377,12 @@ function doJob() {
 
                         if (progress >= secondsNeeded) {
                             log(`Completed: ${questName}`);
-                            RunningGameStore.getRunningGames = realGetRunningGames;
-                            RunningGameStore.getGameForPID   = realGetGameForPID;
-                            FluxDispatcher.dispatch({ type: "RUNNING_GAMES_CHANGE", removed: [fakeGame], added: [], games: [] });
-                            FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
+                            cleanup();
                             doJob();
                         }
                     } catch (e) {
                         log(`Error in heartbeat handler for "${questName}":`, e);
-                        RunningGameStore.getRunningGames = realGetRunningGames;
-                        RunningGameStore.getGameForPID   = realGetGameForPID;
-                        FluxDispatcher.dispatch({ type: "RUNNING_GAMES_CHANGE", removed: [fakeGame], added: [], games: [] });
-                        FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
+                        cleanup();
                         doJob();
                     }
                 };
@@ -403,6 +404,12 @@ function doJob() {
         }
 
         const realFunc = ApplicationStreamingStore.getStreamerActiveStreamMetadata;
+
+        const cleanup = () => {
+            ApplicationStreamingStore.getStreamerActiveStreamMetadata = realFunc;
+            FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
+        };
+
         ApplicationStreamingStore.getStreamerActiveStreamMetadata = () => ({
             id: applicationId,
             pid,
@@ -419,14 +426,12 @@ function doJob() {
 
                 if (progress >= secondsNeeded) {
                     log(`Completed: ${questName}`);
-                    ApplicationStreamingStore.getStreamerActiveStreamMetadata = realFunc;
-                    FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
+                    cleanup();
                     doJob();
                 }
             } catch (e) {
                 log(`Error in heartbeat handler for "${questName}":`, e);
-                ApplicationStreamingStore.getStreamerActiveStreamMetadata = realFunc;
-                FluxDispatcher.unsubscribe("QUESTS_SEND_HEARTBEAT_SUCCESS", fn);
+                cleanup();
                 doJob();
             }
         };
@@ -482,7 +487,7 @@ function doJob() {
 // ── Plugin entry point ────────────────────────────────────────────────────────
 export default definePlugin({
     name: "QuestAutocompleter",
-    description: "Automatically completes Discord quests. Enable 'Auto Accept Quests' in settings to also enroll in new quests automatically.",
+    description: "Automatically completes Discord quests. Supports auto-accept and spoofing game/stream/video progress.",
     authors: [Devs.Nobody],
     settings,
 
@@ -512,16 +517,6 @@ export default definePlugin({
             startSession();
         };
 
-        // Fires when Discord finishes fetching the quest list from the server.
-        // This is the key trigger — quest data often arrives during or after
-        // the CONNECTION_OPEN debounce window, so we must handle it here.
-        // Also ensures stores are initialized if the event fires before startSession completes.
-        const onQuestsFetched = () => {
-            log("QUESTS_FETCH_SUCCESS – quests loaded, scanning...");
-            if (!initialized) initStores();
-            scan();
-        };
-
         // Instant detection when you manually accept a quest
         const onStatusUpdate = () => {
             log("QUEST_USER_STATUS_UPDATE – syncing queue...");
@@ -529,18 +524,14 @@ export default definePlugin({
         };
 
         earlyFlux.subscribe("CONNECTION_OPEN", onConnectionOpen);
-        earlyFlux.subscribe("QUESTS_FETCH_SUCCESS", onQuestsFetched);
         earlyFlux.subscribe("QUEST_USER_STATUS_UPDATE", onStatusUpdate);
 
         fluxUnsubs = [
             () => earlyFlux.unsubscribe("CONNECTION_OPEN", onConnectionOpen),
-            () => earlyFlux.unsubscribe("QUESTS_FETCH_SUCCESS", onQuestsFetched),
             () => earlyFlux.unsubscribe("QUEST_USER_STATUS_UPDATE", onStatusUpdate),
         ];
 
         // If enabled mid-session via plugin manager, CONNECTION_OPEN won't fire
-        // startSession() has a guard so if CONNECTION_OPEN fires first within
-        // the 2s window, the manual call here becomes a no-op
         startSession();
     },
 
@@ -558,6 +549,6 @@ export default definePlugin({
         questQueue       = [];
         processingQuests = false;
         initialized      = false;
-        if (sessionDebounce !== null) { clearTimeout(sessionDebounce); sessionDebounce = null; }
+        sessionStarting  = false;
     }
 });
