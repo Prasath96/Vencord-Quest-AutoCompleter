@@ -43,6 +43,8 @@ Some tasks require the Discord desktop app and will be skipped on web.
    - Open Vencord → Settings → Plugins and enable `QuestAutocompleter`.
 4. (Optional) Enable auto-accept:
    - In the plugin settings, toggle "Auto-accept quests" to have the plugin automatically enroll available quests.
+
+     
 Note: Vencord must be built from source in order to use this plugin. For more information, check out: https://docs.vencord.dev/installing/
 
 ## Credit
